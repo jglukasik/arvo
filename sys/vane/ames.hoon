@@ -1261,6 +1261,12 @@
         /our/(scot %p p.p.bon)/her/(scot %p q.p.bon)
       :_  fox  [hen [%pass wir %j %pubs p.p.bon q.p.bon]]~
     ::
+        %bock
+      :_  fox  [hen %give %turf tuf.fox]~
+    ::
+        %brew
+      :_  fox  [hen [%pass / %j %turf ~]]~
+    ::
         %cake
       ::  ~?  ?=(^ r.bon)  [%cake-woot-bad hen r.bon]
       :_  fox
@@ -1315,6 +1321,11 @@
     ::
         %mack  ?~  +>.sih  $(sih [%g %nice ~])          ::  XX using old code
                $(sih [%g %mean `[%mack +>+.sih]])
+    ::
+        %turf
+      =.  tuf.fox  turf.sih
+      ::  XX give %turf if already recvd %bar?
+      [~ +>.$]
     ::
         %pubs
       ?.  ?=([%our @ %her @ ~] tea)
@@ -1384,7 +1395,8 @@
         ^-  [p=(list boon) q=fort]
         ?-    -.kyz
             %barn
-          [~ fox(gad hen)]
+          :_  fox(gad hen)
+          [%bock ~]~
         ::
             %hear
           (~(gnaw am [now fox]) %good p.kyz q.kyz)
@@ -1396,7 +1408,7 @@
           (~(gnaw am [now fox]) %dead p.kyz q.kyz)
         ::
             %init
-          :_  fox  [%sake p.kyz]~
+          :_  fox  [[%sake p.kyz] [%brew ~] ~]
         ::
           ::  XX confirm unused, remove
           ::
