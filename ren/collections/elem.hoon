@@ -13,44 +13,75 @@
 =<  (item-to-elem itm)
 |%
 ++  item-to-elem
+  !:
   |=  itm=item:collections
   ^-  manx
   ?<  =(/collections/web s.bem.gas)
   =/  sho  (fall (~(get by qix.gas) %show) %default)
   ;div.container
-    ;div.row
-      ;div.flex-col-2;
-      ;div.flex-col-x
-        ;div.collection-index
-            ;+  (meta-to-elem itm sho)
-            ;+
-              ?-    -.itm
-              ::
-                  %collection
-                ?+  sho     !!
-                  %default  (collection-to-elem col.itm)
-                  %post     (collection-post ~ (flop s.bem.gas))
-                  %edit     !!
-                ==
-              ::
-                  %raw
-                ?+  sho     !!
-                  %default  (raw-to-elem raw.itm)
-                  %post     !!
-                  %edit     (collection-post `raw.itm (flop s.bem.gas))
-                ==
-              ::
-                  %both
-                ?+  sho     !!
-                  %default  (both-to-elem col.itm raw.itm)
-                  %post     !!
-                  %edit     (collection-post `raw.itm (flop s.bem.gas))
-                ==
-              ::
+    ;+
+      ?+    -.itm  !!
+          %collection
+        ?+    sho  !!
+        ::
+            %default
+          ;div.row
+            ;div.flex-col-2;
+            ;div.flex-col-x
+              ;div.collection-index
+                ;+  (meta-to-elem itm sho)
+                ;+  (collection-to-elem col.itm)
               ==
+            ==
+            ;+  ?:  =(type.meta.col.itm %blog)
+                  ;div.flex-col-5;
+                ?:  =(type.meta.col.itm %fora)
+                  ;div.flex-col-4;
+                ;div.flex-col-4;
+          ==
+        ::
+            %post
+          ;div.row
+            ;div.flex-col-2;
+            ;div.flex-col-x
+              ;div.collection-index
+                ;+  (meta-to-elem itm sho)
+                ;+  (collection-post ~ (flop s.bem.gas))
+              ==
+            ==
+            ;div.flex-col-2;
+          ==
+        ==
+::        %raw
+      ::
+          %both
+        ?+    sho  !!
+        ::
+            %default
+          ;div.row
+            ;div.flex-col-2;
+            ;div.flex-col-x
+              ;div.collection-index
+                ;+  (meta-to-elem itm sho)
+                ;+  (both-to-elem col.itm raw.itm)
+              ==
+            ==
+            ;div.flex-col-3;
+          ==
+        ::
+            %edit
+          ;div.row
+            ;div.flex-col-2;
+            ;div.flex-col-x
+              ;div.collection-index
+                ;+  (meta-to-elem itm sho)
+                ;+  (collection-post `raw.itm (flop s.bem.gas))
+              ==
+            ==
+            ;div.flex-col-2;
+          ==
         ==
       ==
-    ==
   ==
 ++  collection-to-elem
   |=  col=collection:collections
@@ -89,12 +120,12 @@
     ;+  (raw-to-elem raw)
     ::
     ;div
-      ;div.mb-2
-        ;span(urb-component "IconComment");
-        ;span: {<~(wyt by data.col)>}
+      ;div.flex.align-center.mb-5
+        ;div(urb-component "IconComment");
+        ;div.ml-2.text-small.text-mono.text-600: {<~(wyt by data.col)>}
       ==
       ::
-      ;ul
+      ;ul.vanilla
       ;*  %+  turn
             %+  sort  ~(tap by data.col)
             |=  [[knot a=item:collections] [knot b=item:collections]]
@@ -106,15 +137,25 @@
           ?>  ?=(%raw -.ite)
           =/  owner  (fall (~(get by meta.raw.ite) %owner) 'anonymous')
           =/  date  (fall (~(get by meta.raw.ite) %date-created) 'missing date')
-          ;li.collection-comment
-            ;div
-              ;a.collection-comment-author.text-mono
-                =href  "/~~/landscape/profile"
-                ; {(trip owner)}
+          ;li.mb-6
+            ;div.flex.align-center
+              ;div.mr-2
+                =urb-component  "Sigil"
+                =urb-ship       "{(trip owner)}"
+                =urb-size       "18";
+              ;div
+                ;a.vanilla.text-mono.text-small.text-700.mr-4
+                  =href  "/~~/landscape/profile"
+                  ; {(trip owner)}
+                ==
               ==
+              ;div.text-host-breadcrumb
+                =urb-component  "Elapsed"
+                =urb-timestring  "{(trip date)}";
+            ==
+            ;div.collection-comment-content
               ;+  elm:(static:cram (ream data.raw.ite))
             ==
-            ;span.collection-date: {(trip date)}
           ==
       ==
       ::
@@ -212,9 +253,9 @@
     ==
     ;div.text-mono.text-small.text-300.mt-1.mb-1: {<owner.meta.col>}
     ;div
-      ;span.icon-label.justify-start
-        ;span(urb-component "IconComment");
-        ;span.ml-1
+      ;div.icon-label.justify-start
+        ;div(urb-component "IconComment");
+        ;div.ml-2
           ; {(trip (scot %ud ~(wyt by data.col)))}
         ==
       ==

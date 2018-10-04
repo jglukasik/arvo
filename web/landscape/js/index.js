@@ -1,8 +1,10 @@
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory() :
-	typeof define === 'function' && define.amd ? define(factory) :
-	(factory());
-}(this, (function () { 'use strict';
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(require('qrcode')) :
+	typeof define === 'function' && define.amd ? define(['qrcode'], factory) :
+	(factory(global.qrcode));
+}(this, (function (qrcode) { 'use strict';
+
+qrcode = qrcode && qrcode.hasOwnProperty('default') ? qrcode['default'] : qrcode;
 
 var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -51198,6 +51200,26 @@ function () {
       // for (let msg of ret) {
       //   console.log(`msg ${msg.uid}: ${msg.wen}`);
       // }
+      // store.messages.inbox.messages = [
+      //   {
+      //     aud: ["~zod/marzod.zod"],
+      //     aut: "zod",
+      //     sep: { lin: {
+      //       msg: "Hey marzod!"
+      //     }},
+      //     uid: "0v4.85q7h.25nnt.5mhop.92c1u.3rhsa",
+      //     wen: 1538084786999,
+      //   }, {
+      //     aud: ["~zod/marzod.zod"],
+      //     aut: "marzod",
+      //     sep: { lin: {
+      //       msg: "oh hey zod"
+      //     }},
+      //     uid: "0v4.85q7h.25nnt.5mhop.92c1u.3rhfa",
+      //     wen: 1538084787000,
+      //   },
+      //   ...ret
+      // ];
 
 
       store.messages.inbox.messages = ret;
@@ -51211,14 +51233,16 @@ function () {
     value: function filterInboxMessages(msg) {
       var msgDetails = getMessageContent(msg);
       var typeApp = msgDetails.type === "app";
-      var typeInv = msgDetails.type === "inv";
-      var isDmInvite = typeInv && isDMStation(msgDetails.content);
-      var isEditUpdate = msgDetails.type === "edited item";
-      var hasResponded = typeInv && msgDetails.content === "~zod/null";
+      var typeInv = msgDetails.type === "inv"; // let isDmInvite = typeInv && isDMStation(msgDetails.content);
+
+      var isInboxMsg = msg.aud[0].split("/")[1] === "inbox";
+      var isEditUpdate = msgDetails.type === "edited item"; // let hasResponded = typeInv && msgDetails.content === "~zod/null";
+
       if (typeApp) return false;
-      if (isDmInvite) return false;
-      if (hasResponded) return false;
+      if (typeInv) return false; // if (hasResponded) return false;
+
       if (isEditUpdate) return false;
+      if (isInboxMsg) return false;
       return true;
     }
   }]);
@@ -51663,9 +51687,33 @@ function () {
         this.bindInbox();
         this.bindShortcuts();
         this.bindQuietDmInvites();
+        this.setCleanupTasks();
       } else {
         console.error("~~~ ERROR: Must set api.authTokens before operation ~~~");
       }
+    }
+  }, {
+    key: "setCleanupTasks",
+    value: function setCleanupTasks() {
+      var _this = this;
+
+      window.addEventListener("beforeunload", function (e) {
+        api$1.bindPaths.forEach(function (p) {
+          _this.wipeSubscription(p);
+        });
+      });
+    }
+  }, {
+    key: "wipeSubscription",
+    value: function wipeSubscription(path) {
+      api$1.hall({
+        wipe: {
+          sub: [{
+            hos: api$1.authTokens.ship,
+            pax: path
+          }]
+        }
+      });
     }
   }, {
     key: "quietlyAcceptDmInvites",
@@ -51698,17 +51746,17 @@ function () {
   }, {
     key: "bindQuietDmInvites",
     value: function bindQuietDmInvites() {
-      var _this = this;
+      var _this2 = this;
 
       // Automatically accept DM invite messages
       warehouse$1.pushCallback('circles', function (rep) {
         warehouse$1.pushCallback('circle.gram', function (rep) {
-          _this.quietlyAcceptDmInvites([rep.data.gam]);
+          _this2.quietlyAcceptDmInvites([rep.data.gam]);
 
           return false;
         });
         warehouse$1.pushCallback('circle.nes', function (rep) {
-          _this.quietlyAcceptDmInvites(rep.data.map(function (m) {
+          _this2.quietlyAcceptDmInvites(rep.data.map(function (m) {
             return m.gam;
           }));
 
@@ -51733,13 +51781,13 @@ function () {
       api$1.bind("/circles/~".concat(api$1.authTokens.ship), "PUT");
       warehouse$1.pushCallback('circles', function (rep) {
         // inbox local + remote configs, remote presences
-        api$1.bind("/circle/inbox/config/group-r/0", "PUT"); // grab the config for the root collection circle
-
-        api$1.bind("/circle/c/config/group-r/0", "PUT"); // inbox messages
+        api$1.bind("/circle/inbox/config/group-r/0", "PUT"); // inbox messages
 
         api$1.bind("/circle/inbox/grams/-50", "PUT");
         return true;
-      }); // parses client-specific info (ship nicknames, glyphs, etc)
+      }); // grab the config for the root collection circle
+      // api.bind("/circle/c/config/group-r/0", "PUT");
+      // parses client-specific info (ship nicknames, glyphs, etc)
       // this.bind("/client", "PUT");
       // public membership
 
@@ -51751,7 +51799,7 @@ function () {
   }, {
     key: "runPoll",
     value: function runPoll() {
-      var _this2 = this;
+      var _this3 = this;
 
       console.log('fetching... ', this.seqn); // const controller = new AbortController();
       // const signal = controller.signal;
@@ -51778,7 +51826,13 @@ function () {
         if (data.beat) {
           console.log('beat');
 
-          _this2.runPoll();
+          _this3.runPoll();
+        } else if (data.type === "quit") {
+          console.log("rebinding: ", data);
+          api$1.bind(data.from.path, "PUT", data.from.ship, data.from.appl);
+          _this3.seqn++;
+
+          _this3.runPoll();
         } else {
           console.log("new server data: ", data);
 
@@ -51786,9 +51840,9 @@ function () {
             warehouse$1.storePollResponse(data);
           }
 
-          _this2.seqn++;
+          _this3.seqn++;
 
-          _this2.runPoll();
+          _this3.runPoll();
         }
       }).catch(function (error) {
         console.error('error = ', error); // warehouse.storeReports([{
@@ -51808,6 +51862,7 @@ function () {
   return UrbitOperator;
 }();
 var operator = new UrbitOperator();
+window.operator = operator;
 
 var IconInbox =
 /*#__PURE__*/
@@ -51971,6 +52026,42 @@ function (_Component) {
   return IconDecline;
 }(react_1);
 
+var IconUser =
+/*#__PURE__*/
+function (_Component) {
+  _inherits(IconUser, _Component);
+
+  function IconUser() {
+    _classCallCheck(this, IconUser);
+
+    return _possibleConstructorReturn(this, _getPrototypeOf(IconUser).apply(this, arguments));
+  }
+
+  _createClass(IconUser, [{
+    key: "render",
+    value: function render() {
+      return react.createElement("svg", {
+        width: "16",
+        height: "16",
+        viewBox: "0 0 16 16",
+        fill: "none",
+        xmlns: "http://www.w3.org/2000/svg"
+      }, react.createElement("rect", {
+        width: "16",
+        height: "16",
+        fill: "white"
+      }), react.createElement("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M6.5 5.5C6.5 4.67157 7.17163 4 8 4C8.82835 4 9.5 4.67157 9.5 5.5C9.5 6.32843 8.82835 7 8 7C7.17163 7 6.5 6.32843 6.5 5.5ZM5.5 5.5C5.5 4.11926 6.61927 3 8 3C9.38075 3 10.5 4.11926 10.5 5.5C10.5 6.88073 9.38075 8 8 8C6.61927 8 5.5 6.88073 5.5 5.5ZM12.5 12.5H11.5C11.5 10.9506 10.047 9.5 8 9.5C5.95301 9.5 4.5 10.9506 4.5 12.5H3.5C3.5 10.2908 5.51477 8.5 8 8.5C10.4852 8.5 12.5 10.2908 12.5 12.5Z",
+        fill: "black"
+      }));
+    }
+  }]);
+
+  return IconUser;
+}(react_1);
+
 var Icon =
 /*#__PURE__*/
 function (_Component) {
@@ -52055,6 +52146,10 @@ function (_Component) {
           iconElem = react.createElement(IconSig, null);
           break;
 
+        case "icon-user":
+          iconElem = react.createElement(IconUser, null);
+          break;
+
         case "icon-ellipsis":
           iconElem = react.createElement("div", {
             className: "icon-ellipsis-wrapper icon-label"
@@ -52068,7 +52163,7 @@ function (_Component) {
           break;
       }
 
-      var className = this.props.iconLabel ? "icon-label" : "";
+      var className = this.props.label ? "icon-label" : "";
       return react.createElement("span", {
         className: className
       }, iconElem);
@@ -52234,17 +52329,13 @@ function (_Component) {
           });
           break;
 
-        case "collection-index":
+        case "collection-index-default":
           defaultData = this.getStationHeaderData(this.props.data.station);
-
-          if (this.props.data.collectionPageMode === 'default') {
-            actions = {
-              write: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId, "?show=post"),
-              subscribe: null,
-              details: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId, "?show=details")
-            };
-          }
-
+          actions = {
+            write: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId, "?show=post"),
+            subscribe: null,
+            details: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId, "?show=details")
+          };
           headerData = _objectSpread({}, defaultData, {
             icon: 'icon-collection-index',
             title: _objectSpread({}, defaultData.title, {
@@ -52254,20 +52345,35 @@ function (_Component) {
           });
           break;
 
-        case "collection-post":
+        case "collection-index-post": // TODO: should probably be 'collection-post-write'
+
+        case "collection-post-edit":
+        case "collection-post-default":
           defaultData = this.getStationHeaderData(this.props.data.station);
 
-          if (this.props.data.collectionPageMode === 'default') {
+          if (this.props.data.subtype === 'default') {
             actions = {
               edit: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId, "/").concat(this.props.data.postId, "?show=edit")
             };
           }
 
+          var icon = "icon-collection-post";
+          if (this.props.data.type === "collection-post-default") icon = "icon-collection-comment";
+          var title = {
+            display: this.props.data.title,
+            href: defaultData.title.href
+          };
+
+          if (this.props.data.type === "collection-index-post") {
+            title = {
+              display: "New post",
+              href: "javascript:void(0)"
+            };
+          }
+
           headerData = _objectSpread({}, defaultData, {
-            icon: 'icon-collection-post',
-            title: _objectSpread({}, defaultData.title, {
-              display: this.props.data.title ? this.props.data.title : defaultData.title.display
-            }),
+            icon: icon,
+            title: title,
             breadcrumbs: [defaultData.breadcrumbs[0], {
               display: this.props.data.collTitle,
               href: "/~~/".concat(this.props.data.owner, "/==/web/collections/").concat(this.props.data.collId)
@@ -52293,7 +52399,7 @@ function (_Component) {
           };
           break;
 
-        case "collection-post-edit":
+        case "collection-write":
           headerData = {
             icon: 'icon-collection-post'
           };
@@ -52303,10 +52409,9 @@ function (_Component) {
           headerData = {
             title: {
               display: "Inbox",
-              href: "/~~/landscape"
+              href: "/~~"
             },
-            icon: 'icon-inbox',
-            type: type
+            icon: 'icon-inbox'
           };
           break;
 
@@ -52315,13 +52420,14 @@ function (_Component) {
           headerData = {
             title: {
               display: "Inbox",
-              href: "/~~/landscape"
+              href: "/~~"
             },
             icon: 'icon-inbox'
           };
           break;
       }
 
+      headerData.type = type;
       return headerData;
     }
   }, {
@@ -52348,26 +52454,65 @@ function (_Component) {
             'inbox-link': true,
             'inbox-link-active': warehouse.store.views.inbox === "inbox-recent"
           });
-          var allClass = classnames({
+          var listClass = classnames({
             'vanilla': true,
             'inbox-link': true,
-            'inbox-link-active': warehouse.store.views.inbox === "inbox-all"
+            'inbox-link-active': warehouse.store.views.inbox === "inbox-list"
           });
           return react.createElement(react.Fragment, null, react.createElement("div", {
             className: "flex-col-2"
           }), react.createElement("div", {
-            className: "flex-col-x text-heading"
+            className: "flex-col-x text-heading text-squat"
           }, react.createElement("a", {
             className: recentClass,
             onClick: function onClick() {
               _this2.navigateSubpage('inbox', 'inbox-recent');
             }
           }, "Recent"), react.createElement("a", {
-            className: allClass,
+            className: listClass,
             onClick: function onClick() {
-              _this2.navigateSubpage('inbox', 'inbox-all');
+              _this2.navigateSubpage('inbox', 'inbox-list');
             }
           }, "All")));
+          break;
+
+        case "collection-index-post":
+        case "collection-post-edit":
+        case "collection-post-default":
+          // <Elapsed timestring={parseInt(this.state.activatedMsg.date, 10)} classes="ml-5 mr-2 text-timestamp" />
+          return react.createElement(react.Fragment, null, react.createElement("div", {
+            className: "flex-col-2"
+          }), react.createElement("div", {
+            className: "flex-col-x"
+          }, react.createElement("span", {
+            className: "text-mono text-300 text-small"
+          }, this.props.data.dateCreated.slice(0, -6))));
+          break;
+
+        case "header-profile":
+          var onSettingsPage = window.location.href.includes("settings");
+          var indexClass = classnames({
+            'vanilla': true,
+            'mr-8': true,
+            'inbox-link': true,
+            'inbox-link-active': !onSettingsPage
+          });
+          var settingsClass = classnames({
+            'vanilla': true,
+            'inbox-link': true,
+            'inbox-link-active': onSettingsPage
+          });
+          return react.createElement(react.Fragment, null, react.createElement("div", {
+            className: "flex-col-2"
+          }), react.createElement("div", {
+            className: "flex-col-x text-heading text-squat"
+          }, react.createElement("a", {
+            className: indexClass,
+            href: "/~~/".concat(this.props.data.owner, "/==/web/landscape/profile")
+          }, "Profile"), react.createElement("a", {
+            className: settingsClass,
+            href: "/~~/".concat(this.props.data.owner, "/==/web/landscape/profile/settings")
+          }, "Settings")));
           break;
       }
     }
@@ -52379,11 +52524,11 @@ function (_Component) {
           var display = _ref.display,
               href = _ref.href;
           return react.createElement(react.Fragment, null, react.createElement("a", {
-            className: "vanilla text-300 text-mono text-small",
+            className: "text-host-breadcrumb",
             key: display,
             href: href
           }, display), react.createElement("span", {
-            className: "text-300 text-mono text-small ml-2 mr-2"
+            className: "text-host-breadcrumb ml-2 mr-2"
           }, "/"));
         });
       }
@@ -52436,7 +52581,7 @@ function (_Component) {
             case "write":
               lusElem = key === "write" ? react.createElement(Icon, {
                 type: "icon-lus",
-                iconLabel: true
+                label: true
               }) : null;
               break;
           } // TODO: No idea why .key and .href aren't showing up in the attributes
@@ -52491,13 +52636,13 @@ function (_Component) {
         type: "icon-panini"
       })), react.createElement(Icon, {
         type: headerData.icon,
-        iconLabel: true
+        label: true
       })), react.createElement("h1", {
         className: headerClass
       }, react.createElement("a", {
         href: headerData.title.href
       }, headerData.title.display)), actions), react.createElement("div", {
-        className: "row header-carpet text-squat"
+        className: "row header-carpet"
       }, headerCarpet));
     }
   }, {
@@ -63697,7 +63842,7 @@ function (_Component) {
   _createClass(Elapsed, [{
     key: "renderTime",
     value: function renderTime() {
-      var serverTime = new Date(this.props.timestring);
+      var serverTime = new Date(esoo(this.props.timestring));
       var clientTime = new Date(); // local
 
       return secToString((clientTime - serverTime) / 1000).split(' ')[0];
@@ -63988,37 +64133,77 @@ var InboxRecentPage =
 function (_Component) {
   _inherits(InboxRecentPage, _Component);
 
-  function InboxRecentPage() {
+  function InboxRecentPage(props) {
+    var _this;
+
     _classCallCheck(this, InboxRecentPage);
 
-    return _possibleConstructorReturn(this, _getPrototypeOf(InboxRecentPage).apply(this, arguments));
+    _this = _possibleConstructorReturn(this, _getPrototypeOf(InboxRecentPage).call(this, props));
+    _this.state = {
+      activatedMsg: {
+        dateGroup: null,
+        // TODO: What's a good "0" value for Dates?
+        date: null
+      }
+    };
+    _this.mouseenterActivate = _this.mouseenterActivate.bind(_assertThisInitialized(_assertThisInitialized(_this)));
+    _this.mouseleaveActivate = _this.mouseenterActivate.bind(_assertThisInitialized(_assertThisInitialized(_this)));
+    return _this;
   }
 
   _createClass(InboxRecentPage, [{
+    key: "activateMessageGroup",
+    value: function activateMessageGroup(dateGroup, date) {
+      this.setState({
+        activatedMsg: {
+          dateGroup: dateGroup,
+          date: date
+        }
+      });
+    }
+  }, {
+    key: "mouseenterActivate",
+    value: function mouseenterActivate(e) {
+      if (e.currentTarget.dataset.date) {
+        this.activateMessageGroup(e.currentTarget.dataset.dateGroup, e.currentTarget.dataset.date);
+      }
+    }
+  }, {
+    key: "mouseleaveActivate",
+    value: function mouseleaveActivate(e) {
+      this.activateMessageGroup(null, null);
+    }
+  }, {
     key: "buildSectionContent",
     value: function buildSectionContent(section) {
-      var _this = this;
+      var _this2 = this;
 
       var lastAut = "";
       var messageRows = section.msgs.map(function (msg, i) {
         var messageDetails = getMessageContent(msg);
         var isPostUpdate = messageDetails.contentType === "blog";
-        if (lastAut !== msg.aut) console.log("aut = ", msg.aut);
+        var displayAuthorRow = lastAut !== msg.aut || isPostUpdate;
         var ret = react.createElement("div", {
-          key: i
-        }, lastAut !== msg.aut && react.createElement(react.Fragment, null, react.createElement("div", {
+          key: msg.uid,
+          "data-date": msg.wen,
+          "data-date-group": msg.dateGroup,
+          onMouseEnter: _this2.mouseenterActivate,
+          onMouseLeave: _this2.mouseleaveActivate
+        }, displayAuthorRow && react.createElement(react.Fragment, null, react.createElement("div", {
           className: "row align-center ".concat(isPostUpdate && 'mt-3')
         }, react.createElement("div", {
           className: "flex-col-2 flex justify-end"
         }, isPostUpdate && react.createElement(Icon, {
           type: "icon-collection-post",
-          iconLabel: true
+          label: true
         })), react.createElement("div", {
           className: "flex-col-x"
         }, messageDetails.postUrl && react.createElement("a", {
           className: "text-500",
           href: messageDetails.postUrl
-        }, messageDetails.postTitle))), react.createElement("div", {
+        }, messageDetails.postTitle)), react.createElement("div", {
+          className: "flex-col-3"
+        })), react.createElement("div", {
           className: "row"
         }, react.createElement("div", {
           className: "flex-col-2"
@@ -64027,7 +64212,9 @@ function (_Component) {
         }, react.createElement("a", {
           className: "vanilla text-mono text-small text-700",
           href: prettyShip(msg.aut)[1]
-        }, prettyShip("~".concat(msg.aut))[0])))), react.createElement("div", {
+        }, prettyShip("~".concat(msg.aut))[0])), react.createElement("div", {
+          className: "flex-col-3"
+        }))), react.createElement("div", {
           className: "row"
         }, react.createElement("div", {
           className: "flex-col-2"
@@ -64035,11 +64222,13 @@ function (_Component) {
           className: "flex-col-x"
         }, react.createElement(Message, {
           details: messageDetails,
-          api: _this.props.api,
-          storeReports: _this.props.storeReports,
-          pushCallback: _this.props.pushCallback,
-          transitionTo: _this.props.transitionTo
-        }))));
+          api: _this2.props.api,
+          storeReports: _this2.props.storeReports,
+          pushCallback: _this2.props.pushCallback,
+          transitionTo: _this2.props.transitionTo
+        })), react.createElement("div", {
+          className: "flex-col-3"
+        })));
         lastAut = msg.aut;
         return ret;
       });
@@ -64048,10 +64237,10 @@ function (_Component) {
   }, {
     key: "buildSections",
     value: function buildSections(sections) {
-      var _this2 = this;
+      var _this3 = this;
 
       return sections.map(function (section, i) {
-        var sectionContent = _this2.buildSectionContent(section);
+        var sectionContent = _this3.buildSectionContent(section);
 
         return react.createElement("div", {
           className: "mt-4 mb-6",
@@ -64061,25 +64250,32 @@ function (_Component) {
         }, react.createElement("div", {
           className: "flex-col-2"
         }), react.createElement("div", {
-          className: "flex-col-x text-mono text-small text-300"
+          className: "flex-col-x"
         }, react.createElement("a", {
           href: section.stationDetails.hostProfileUrl,
-          className: "vanilla"
+          className: "text-host-breadcrumb"
         }, "~", section.stationDetails.host), react.createElement("span", {
-          className: "ml-2 mr-2"
-        }, "/"))), react.createElement("div", {
+          className: "text-host-breadcrumb ml-2 mr-2"
+        }, "/")), react.createElement("div", {
+          className: "flex-col-3"
+        })), react.createElement("div", {
           className: "row align-center"
         }, react.createElement("div", {
           className: "flex-col-2 flex justify-end"
         }, react.createElement(Icon, {
           type: section.icon,
-          iconLabel: true
+          label: true
         })), react.createElement("div", {
           className: "flex-col-x"
         }, react.createElement("a", {
           href: section.stationDetails.stationUrl,
           className: "text-600 underline"
-        }, section.stationDetails.stationTitle))), sectionContent);
+        }, section.stationDetails.stationTitle), section.dateGroup === parseInt(_this3.state.activatedMsg.dateGroup, 10) && react.createElement(Elapsed, {
+          timestring: parseInt(_this3.state.activatedMsg.date, 10),
+          classes: "ml-3 text-timestamp"
+        })), react.createElement("div", {
+          className: "flex-col-3"
+        })), sectionContent);
       });
     }
   }, {
@@ -64105,6 +64301,7 @@ function (_Component) {
       var lastMessageType = "";
       var sections = [];
       var stationIndex = -1;
+      var lastDateGroup = "";
 
       for (var i = 0; i < inbox.length; i++) {
         var msg = inbox[i];
@@ -64113,15 +64310,19 @@ function (_Component) {
         var stationDetails = getStationDetails(aud);
 
         if (aud !== lastStationName || msgDetails.type !== lastMessageType) {
+          lastDateGroup = msg.wen;
+          msg.dateGroup = lastDateGroup;
           sections.push({
             name: aud,
             msgs: [msg],
             icon: this.getSectionIconType(msgDetails, stationDetails),
             msgDetails: msgDetails,
+            dateGroup: lastDateGroup,
             stationDetails: stationDetails
           });
           stationIndex++;
         } else {
+          msg.dateGroup = lastDateGroup;
           sections[stationIndex].msgs.push(msg);
         }
 
@@ -64166,31 +64367,44 @@ function (_Component) {
         }, react.createElement("a", {
           className: "vanilla",
           href: stationDetails.stationUrl
-        }, react.createElement("u", {
-          className: "text-600"
-        }, stationDetails.stationTitle))));
+        }, stationDetails.stationTitle)));
       });
     }
   }, {
     key: "buildSection",
     value: function buildSection(stations) {
       return stations.map(function (stationDetails) {
+        var stationClass = classnames({
+          'text-mono': !stationDetails.type.includes("collection"),
+          'text-heading': stationDetails.type.includes("collection"),
+          'text-700': true
+        });
         return react.createElement("div", {
           key: stationDetails.station,
-          className: "mt-3"
+          className: "mt-3 row align-center"
         }, react.createElement("div", {
-          className: "text-mono"
-        }, react.createElement("a", {
-          className: "vanilla",
+          className: "text-mono flex-col-3 flex-offset-2"
+        }, stationDetails.type !== "stream-dm" && react.createElement(react.Fragment, null, react.createElement("a", {
+          className: "text-host-breadcrumb",
           href: stationDetails.hostProfileUrl
-        }, react.createElement("u", null, stationDetails.host)), react.createElement("span", {
-          className: "text-600"
-        }, "  /  "), react.createElement("a", {
-          className: "vanilla",
+        }, "~", stationDetails.host), react.createElement("span", {
+          className: "text-host-breadcrumb ml-2 mr-2"
+        }, "/")), react.createElement("a", {
+          className: stationClass,
           href: stationDetails.stationUrl
-        }, react.createElement("u", {
-          className: "text-600"
-        }, stationDetails.stationTitle))), react.createElement("div", null, stationDetails.config.con.sis.length, " Members"));
+        }, stationDetails.stationTitle)), react.createElement("div", {
+          className: "flex-col-1"
+        }, react.createElement(Elapsed, {
+          timestring: 1538163986689,
+          classes: "text-timestamp"
+        })), react.createElement("div", {
+          className: "flex-col-1 flex align-center"
+        }, react.createElement(Icon, {
+          type: "icon-user",
+          label: true
+        }), react.createElement("span", {
+          className: "text-host-breadcrumb"
+        }, "122")));
       });
     }
   }, {
@@ -64200,26 +64414,39 @@ function (_Component) {
       if (!stations) return null;
       var chatStations = this.buildSection(stations.chatStations);
       var collStations = this.buildSection(stations.collStations);
-      var DMStations = this.buildDMSection(stations.dmStations);
-      return react.createElement("div", {
-        className: "row"
-      }, react.createElement("div", {
-        className: "flex-col-2"
-      }), react.createElement("div", {
-        className: "list-page flex-col-x"
-      }, react.createElement("div", {
-        className: "mt-4 mb-9"
-      }, react.createElement("div", {
-        className: "text-600"
-      }, "Chats"), chatStations), react.createElement("div", {
-        className: "mt-4 mb-9"
-      }, react.createElement("div", {
-        className: "text-600"
-      }, "Blogs, Forum and Notes"), collStations), react.createElement("div", {
-        className: "mt-4 mb-9"
-      }, react.createElement("div", {
-        className: "text-600"
-      }, "Direct Messages"), DMStations)));
+      var DMStations = this.buildSection(stations.dmStations);
+      var sections = [{
+        title: "Chats",
+        icon: "icon-stream-chat",
+        data: chatStations
+      }, {
+        title: "Forum",
+        icon: "icon-collection-index",
+        data: collStations
+      }, {
+        title: "Direct Messages",
+        icon: "icon-stream-dm",
+        data: DMStations
+      }];
+      var sectionElems = sections.map(function (s) {
+        return react.createElement("div", {
+          className: "mt-4 mb-17"
+        }, react.createElement("div", {
+          className: "row"
+        }, react.createElement("div", {
+          className: "flex-col-2 flex justify-end align-center"
+        }, react.createElement(Icon, {
+          type: s.icon,
+          label: true
+        })), react.createElement("div", {
+          className: "flex-col-x"
+        }, react.createElement("h2", {
+          className: "text-500 mb-1 mt-1"
+        }, s.title)), react.createElement("div", {
+          className: "flex-col-3"
+        })), s.data);
+      });
+      return sectionElems;
     }
   }]);
 
@@ -64244,7 +64471,7 @@ function (_Component) {
 
       if (this.props.store.views.inbox === "inbox-recent") {
         content = react.createElement(InboxRecentPage, this.props);
-      } else if (this.props.store.views.inbox === "inbox-all") {
+      } else if (this.props.store.views.inbox === "inbox-list") {
         content = react.createElement(InboxListPage, this.props);
       }
 
@@ -71171,7 +71398,7 @@ function (_Component) {
           href: prettyShip(msg.aut)[1]
         }, prettyShip("~".concat(msg.aut))[0]), msg.dateGroup === parseInt(this.state.activatedMsg.dateGroup, 10) && react.createElement(react.Fragment, null, react.createElement(Elapsed, {
           timestring: parseInt(this.state.activatedMsg.date, 10),
-          classes: "ml-5 mr-2 text-mono"
+          classes: "ml-5 mr-2 text-timestamp"
         }), react.createElement("span", {
           className: "text-mono text-gray"
         }, dateToDa(new Date(parseInt(this.state.activatedMsg.date, 10))))));
@@ -71280,8 +71507,10 @@ function (_Component) {
 
     _this = _possibleConstructorReturn(this, _getPrototypeOf(TopicCreatePage).call(this, props));
     _this.state = {
+      editMode: props.show === "edit",
+      title: "",
       topicContent: props.content ? props.content : '',
-      details: _this.getDetails(props)
+      details: _this.getDetails(props, props.show === "edit")
     };
     _this.createTopic = _this.createTopic.bind(_assertThisInitialized(_assertThisInitialized(_this)));
     _this.valueChange = _this.valueChange.bind(_assertThisInitialized(_assertThisInitialized(_this)));
@@ -71293,6 +71522,15 @@ function (_Component) {
     value: function componentDidMount() {
       var path = "/circle/".concat(this.state.details.namedCircle, "/config-l/grams/-10");
       this.props.api.bind(path, "PUT", this.state.details.hostship);
+
+      if (this.state.editMode) {
+        var metadataQuery = window.document.querySelectorAll('[name="urb-metadata"]')[0];
+        var title = metadataQuery && metadataQuery.getAttribute("urb-name");
+        title = title || "";
+        this.setState({
+          title: title
+        });
+      }
     }
   }, {
     key: "componentWillUnmount",
@@ -71301,26 +71539,12 @@ function (_Component) {
       this.props.api.bind(path, "DELETE", this.state.details.hostship);
     }
   }, {
-    key: "titleExtract",
-    value: function titleExtract(s) {
-      var r = s.split('\n').filter(function (x) {
-        return x.startsWith('# ');
-      });
-
-      if (r.length > 0) {
-        return r[0].slice(2);
-      }
-
-      return '';
-    }
-  }, {
     key: "getDetails",
-    value: function getDetails(conProps) {
+    value: function getDetails(conProps, editMode) {
       var props = this.props || conProps;
       var details = {};
-      details.isEdit = props.show == 'edit';
 
-      if (details.isEdit) {
+      if (editMode) {
         details.clayPath = props.claypath.split('/').slice(1);
         details.hostship = props.ship.substr(1);
         details.circle = "~".concat(details.hostship, "/c").concat([''].concat(details.clayPath.slice(2, -1)).join('-'));
@@ -71350,7 +71574,7 @@ function (_Component) {
       var dat = {};
       var details = this.getDetails();
 
-      if (details.isEdit) {
+      if (this.state.editMode) {
         dat = {
           ship: details.hostship,
           desk: 'home',
@@ -71358,7 +71582,7 @@ function (_Component) {
             post: {
               path: '/' + details.clayPath.join('/'),
               // TODO: should be web/collections/~2018.9.11..17.41.40..6823/~2018.9.11..20.21.42..607c
-              name: details.title,
+              name: this.state.title,
               comments: true,
               // XX TODO Get this value from user or parent
               type: 'blog',
@@ -71374,7 +71598,7 @@ function (_Component) {
           acts: [{
             post: {
               path: '/' + details.clayPath.join('/'),
-              name: this.titleExtract(this.state.topicContent),
+              name: this.state.title,
               comments: true,
               // XX TODO Get this value from user or parent
               type: 'blog',
@@ -71389,10 +71613,10 @@ function (_Component) {
       this.props.api.coll(dat);
       this.props.storeReports([{
         type: REPORT_PAGE_STATUS,
-        data: PAGE_STATUS_TRANSITIONING
+        data: PAGE_STATUS_PROCESSING
       }]);
 
-      if (details.isEdit) {
+      if (this.state.editMode) {
         this.props.pushCallback("circle.gram", function (rep) {
           var gramType = lodash.get(rep, 'data.gam.sep.fat.tac.text', null);
 
@@ -71441,54 +71665,61 @@ function (_Component) {
   }, {
     key: "render",
     value: function render() {
-      var hostship, dateElem;
       var details = this.getDetails();
-
-      if (details.isEdit) {
-        var lastEditDate = details.lastedit == 'missing-date' ? '' : daToDate(details.lastedit).toISOString();
-        dateElem = react.createElement("div", {
-          className: "mb-5"
-        }, react.createElement(Elapsed, {
-          timestring: lastEditDate,
-          classes: "collection-date text-black mr-4"
-        }), react.createElement("span", {
-          className: "collection-date"
-        }, details.lastedit));
-      }
-
-      return react.createElement("div", {
-        className: "row"
-      }, react.createElement("div", {
-        className: "flex-col-x"
-      }, dateElem, react.createElement("h3", null, "Post"), react.createElement("div", {
-        className: "collection-edit"
-      }, react.createElement("textarea", {
-        className: "text-code collection-post-edit mb-4",
+      return react.createElement("div", null, react.createElement("h3", {
+        className: "text-500"
+      }, "Title"), react.createElement("input", {
+        type: "text",
+        name: "title",
+        className: "h3 mt-0 mb-0 text-500 collection-title ".concat(this.state.title.length > 0 && 'collection-value-filled'),
+        value: this.state.title,
+        onChange: this.valueChange,
+        disabled: this.props.store.views.transition !== PAGE_STATUS_READY
+      }), react.createElement("h3", {
+        className: "text-500 mt-6"
+      }, "Post"), react.createElement("textarea", {
+        className: "collection-post-edit mb-6 ".concat(this.state.topicContent.length > 0 && 'collection-value-filled'),
         name: "topicContent",
-        placeholder: "New post",
         disabled: this.props.store.views.transition !== PAGE_STATUS_READY,
         value: this.state.topicContent,
         onChange: this.valueChange
-      }), react.createElement("div", {
-        className: "collection-post-actions"
-      }, react.createElement("a", {
-        href: "/~~/~".concat(details.hostship, "/==/").concat(details.clayPath.join('/')),
-        className: "header-link mr-6",
-        disabled: this.props.store.views.transition !== PAGE_STATUS_READY
-      }, "Cancel"), react.createElement(Button, {
-        content: "Save",
+      }), react.createElement("div", null, react.createElement(Button, {
+        content: "Publish",
         disabled: this.props.store.views.transition !== PAGE_STATUS_READY,
-        classes: "btn btn-sm btn-primary",
+        classes: "btn btn-sm btn-secondary mr-1",
         action: this.createTopic,
         responseKey: "circle.config.dif.full",
         pushCallback: this.props.pushCallback
-      })))), react.createElement("div", {
-        className: "flex-col-2"
-      }));
+      }), react.createElement("a", {
+        href: "/~~/~".concat(details.hostship, "/==/").concat(details.clayPath.join('/')),
+        disabled: this.props.store.views.transition !== PAGE_STATUS_READY,
+        className: "vanilla btn btn-default"
+      }, "Cancel")));
     }
   }]);
 
   return TopicCreatePage;
+}(react_1);
+
+var Sigil =
+/*#__PURE__*/
+function (_Component) {
+  _inherits(Sigil, _Component);
+
+  function Sigil() {
+    _classCallCheck(this, Sigil);
+
+    return _possibleConstructorReturn(this, _getPrototypeOf(Sigil).apply(this, arguments));
+  }
+
+  _createClass(Sigil, [{
+    key: "render",
+    value: function render() {
+      return sealDict.getSeal(this.props.ship.substr(1), this.props.size);
+    }
+  }]);
+
+  return Sigil;
 }(react_1);
 
 var CommentCreate =
@@ -71565,50 +71796,32 @@ function (_Component) {
   }, {
     key: "render",
     value: function render() {
-      return react.createElement("div", {
-        className: "create-comment"
+      return react.createElement("div", null, react.createElement("div", {
+        className: "flex align-top"
       }, react.createElement("div", {
-        className: "usership text-mono"
-      }, "~", this.props.api.authTokens.ship), react.createElement("textarea", {
+        className: "mr-2"
+      }, react.createElement(Sigil, {
+        ship: "~".concat(this.props.api.authTokens.ship),
+        size: "18"
+      })), react.createElement("textarea", {
         value: this.state.comment,
         onChange: this.valueChange,
         name: "comment",
-        className: "comment-edit mb-3",
+        className: "comment-edit mb-4",
         disabled: this.state.status === STATUS_LOADING,
-        placeholder: "Post a comment"
-      }), react.createElement(Button, {
-        classes: "btn btn-tetiary",
+        placeholder: ""
+      })), react.createElement(Button, {
+        classes: "btn btn-tetiary collection-comment-content",
         disabled: this.state.comment.length === 0 || this.state.status === STATUS_LOADING,
         action: this.createComment,
         responseKey: "circle.gram",
         pushCallback: this.props.pushCallback,
-        content: "Publish \u2192"
+        content: "Add comment"
       }));
     }
   }]);
 
   return CommentCreate;
-}(react_1);
-
-var AvatarLg =
-/*#__PURE__*/
-function (_Component) {
-  _inherits(AvatarLg, _Component);
-
-  function AvatarLg() {
-    _classCallCheck(this, AvatarLg);
-
-    return _possibleConstructorReturn(this, _getPrototypeOf(AvatarLg).apply(this, arguments));
-  }
-
-  _createClass(AvatarLg, [{
-    key: "render",
-    value: function render() {
-      return sealDict.getSeal(this.props.ship.substr(1), 320);
-    }
-  }]);
-
-  return AvatarLg;
 }(react_1);
 
 var ChatList =
@@ -71722,6 +71935,44 @@ function (_Component) {
   return ProfileMsgBtn;
 }(react_1);
 
+var QRCodeComponent =
+/*#__PURE__*/
+function (_Component) {
+  _inherits(QRCodeComponent, _Component);
+
+  function QRCodeComponent() {
+    _classCallCheck(this, QRCodeComponent);
+
+    return _possibleConstructorReturn(this, _getPrototypeOf(QRCodeComponent).apply(this, arguments));
+  }
+
+  _createClass(QRCodeComponent, [{
+    key: "componentDidMount",
+    value: function componentDidMount() {
+      var qrText = JSON.stringify({
+        ship: this.props.ship.substr(1),
+        code: this.props.code
+      });
+      qrcode.toCanvas(document.getElementById('urb-qr-canvas'), qrText, {
+        width: 256,
+        margin: 0
+      }, function (error) {
+        console.log("qr whoops = ", error);
+      });
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      return react.createElement("canvas", {
+        className: "mt-4",
+        id: "urb-qr-canvas"
+      });
+    }
+  }]);
+
+  return QRCodeComponent;
+}(react_1);
+
 var ComponentMap = {
   "ChatPage": ChatPage,
   "ChatList": ChatList,
@@ -71730,8 +71981,9 @@ var ComponentMap = {
   "InboxPage": InboxPage,
   "Elapsed": Elapsed,
   "IconComment": IconComment,
-  "AvatarLg": AvatarLg,
-  "ProfileMsgBtn": ProfileMsgBtn
+  "Sigil": Sigil,
+  "ProfileMsgBtn": ProfileMsgBtn,
+  "QRCodeComponent": QRCodeComponent
 };
 
 var CommandHelpItem =
@@ -71906,25 +72158,27 @@ function (_Component) {
       });
       return react.createElement("div", {
         className: "mb-3 form-mve"
-      }, react.createElement("div", {
-        className: "mt-2 ml-3"
-      }, "Note: All circles are public on the testnet while permissions are built"), fieldElems, react.createElement(Button, {
+      }, fieldElems, react.createElement("div", {
+        className: "mb-2"
+      }, react.createElement(Button, {
         name: "sup",
-        classes: "btn btn-sm btn-text btn-block mt-3",
+        classes: "btn btn-secondary mt-3",
         focusChange: this.focusChange,
         action: this.onSubmit,
         disabled: this.state.errorList.length > 0 || this.state.status === STATUS_LOADING,
         content: "Create \u2192",
         pushCallback: this.props.pushCallback,
         responseKey: "circles"
-      }), react.createElement(Button, {
-        classes: "btn btn-sm btn-text btn-block red",
+      })), react.createElement(Button, {
+        classes: "btn btn-sm btn-block",
         action: this.props.cancel,
         focusChange: this.focusChange,
         disabled: this.state.status === STATUS_LOADING,
         content: "Cancel",
         pushCallback: this.props.pushCallback
-      }));
+      }), react.createElement("div", {
+        className: "mt-2 ml-3"
+      }, "Note: All circles are public on the testnet while permissions are built"));
     }
   }]);
 
@@ -72456,7 +72710,7 @@ function (_Component) {
       return [{
         name: "inbox",
         action: function action() {
-          _this8.props.transitionTo('/~~/landscape');
+          _this8.props.transitionTo('/~~');
         },
         displayText: "inbox",
         helpText: "Go to the inbox"
@@ -72547,7 +72801,14 @@ function (_Component) {
 
       options = options.filter(function (opt) {
         return opt.name.includes(trimmedCmd);
-      });
+      }); // Filter out "new collection" and "new chat" options from default list of options
+
+      if (!["new collection", "new chat"].includes(trimmedCmd)) {
+        options = options.filter(function (opt) {
+          return !opt.name.includes("new");
+        });
+      }
+
       return options;
     }
   }, {
@@ -72770,23 +73031,28 @@ function (_Component) {
 
       if (headerQuery.length > 0) {
         headerData.type = headerQuery[0].getAttribute('urb-structure-type');
+        headerData.subtype = headerQuery[0].getAttribute('urb-show');
+
+        if (headerData.type.includes("collection")) {
+          headerData.type = "".concat(headerData.type, "-").concat(headerData.subtype);
+        }
       }
 
       if (headerQuery.length > 0 && headerData.type) {
         headerData.owner = headerQuery[0].getAttribute('urb-owner');
         headerData.pageTitle = headerQuery[0].getAttribute('urb-name');
-        headerData.collectionPageMode = headerQuery[0].getAttribute('urb-show');
         headerData.dateCreated = headerQuery[0].getAttribute('urb-date-created');
         headerData.dateModified = headerQuery[0].getAttribute('urb-date-modified');
         headerData.collPath = headerQuery[0].getAttribute('urb-path');
 
-        if (headerData.type === "collection-index") {
+        if (headerData.type.includes("collection-index")) {
           headerData.title = headerData.pageTitle;
           headerData.collId = headerData.dateCreated;
+          headerData.collTitle = headerData.title;
           headerData.station = "".concat(headerData.owner, "/c-").concat(headerData.collId);
         }
 
-        if (headerData.type === "collection-post") {
+        if (headerData.type.includes("collection-post")) {
           headerData.title = headerData.pageTitle;
           headerData.collId = headerData.collPath.split("/")[3];
           headerData.collTitle = "TBD";
@@ -72812,57 +73078,7 @@ function (_Component) {
         pushCallback: this.props.pushCallback,
         transitionTo: this.props.transitionTo,
         runPoll: this.props.runPoll
-      }); // let headerType = (headerQuery.length > 0) ?
-      //   headerQuery[0].getAttribute('value') : "default";
-      //
-      // let headerData;
-      //
-      // if (headerType === "collection" ||
-      //     headerType === "both" ||
-      //     headerType === "raw"){
-      //
-      //   headerData = {
-      //     type: headerType,
-      //     path: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('path') : null,
-      //     station: `${headerQuery[0].getAttribute('ship')}/c-${headerQuery[0].getAttribute('path').split('/').slice(3).join('-')}`,
-      //
-      //     postid: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('postid') : null,
-      //     ship: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('ship') : null,
-      //     show: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('show') : null,
-      //   }
-      //
-      // } else {
-      //   headerData = {
-      //     type: headerType,
-      //     title: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('title') : null,
-      //     station: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('station') : null,
-      //     postid: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('postid') : null,
-      //     ship: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('ship') : null,
-      //     publ: (headerQuery.length > 0) ?
-      //       headerQuery[0].getAttribute('publ') : null,
-      //   }
-      // }
-      // headerData.station = (headerData.station === "query") ? getQueryParams().station : headerData.station;
-      //
-      // return (
-      //   <Header
-      //     data={headerData}
-      //     api={this.props.api}
-      //     store={this.props.store}
-      //     storeReports={this.props.storeReports}
-      //     pushCallback={this.props.pushCallback}
-      //     transitionTo={this.props.transitionTo}
-      //     runPoll={this.props.runPoll}
-      //   />
-      // )
+      });
     }
   }, {
     key: "render",
@@ -73223,7 +73439,7 @@ function getStationDetails(station) {
 
   switch (ret.type) {
     case "aggregator-inbox":
-      ret.stationUrl = "/~~/landscape";
+      ret.stationUrl = "/~~";
       ret.stationTitle = ret.cir;
       break;
 
@@ -73267,6 +73483,20 @@ window.getStationDetails = getStationDetails;
 
 function capitalize(str) {
   return "".concat(str[0].toUpperCase()).concat(str.substr(1));
+} // takes a galactic (urbit) time and converts to 8601
+
+function esoo(str) {
+  var dubb = function dubb(num) {
+    return num < 10 ? '0' + parseInt(num) : parseInt(num);
+  };
+
+  var p = /\~(\d\d\d\d).(\d\d?).(\d\d?)..(\d\d?).(\d\d?).(\d\d?)/.exec(str);
+
+  if (p) {
+    return "".concat(p[1], "-").concat(dubb(p[2]), "-").concat(dubb(p[3]), "T").concat(dubb(p[4]), ":").concat(dubb(p[5]), ":").concat(dubb(p[6]), "Z");
+  }
+
+  return false;
 } // check if hostname follows ship.*.urbit.org scheme
 
 function isProxyHosted(hostName) {
@@ -73492,6 +73722,7 @@ function getMessageContent(msg) {
       var par = jason.path.slice(0, -1);
       return {
         type: msg.sep.fat.tac.text,
+        msg: msg,
         contentType: jason.type,
         content: content,
         snip: jason.snip,
@@ -73508,6 +73739,7 @@ function getMessageContent(msg) {
     'sep.exp': function sepExp(msg) {
       return {
         type: "exp",
+        msg: msg,
         content: msg.sep.exp.exp,
         res: msg.sep.exp.res.join('\n')
       };
@@ -73521,6 +73753,7 @@ function getMessageContent(msg) {
       if (typeof value === "string") {
         ret = {
           type: value,
+          msg: msg,
           content: lodash.get(msg, key)
         };
       } else if (typeof value === "function") {
@@ -73583,6 +73816,7 @@ function isUrl(string) {
 
 var util = Object.freeze({
 	capitalize: capitalize,
+	esoo: esoo,
 	isProxyHosted: isProxyHosted,
 	getQueryParams: getQueryParams,
 	isAggregator: isAggregator,
@@ -73615,6 +73849,7 @@ function () {
     key: "setAuthTokens",
     value: function setAuthTokens(authTokens) {
       this.authTokens = authTokens;
+      this.bindPaths = [];
     } // keep default bind to hall, since its bind procedure more complex for now AA
 
   }, {
@@ -73623,6 +73858,7 @@ function () {
       var ship = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.authTokens.ship;
       var appl = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : "hall";
       console.log('binding to ...', appl, ", path: ", path, ", as ship: ", ship, ", by method: ", method);
+      this.bindPaths = lodash.uniq(_toConsumableArray(this.bindPaths).concat([path]));
       var params = {
         appl: appl,
         mark: "json",
