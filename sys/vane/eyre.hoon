@@ -724,6 +724,8 @@
       =.  fig  [~ ?=(%king (clan:title our)) & &]
       +>.$(hov [~ our], top [[our %home ud+0] /web])
     ::
+        $sunk  !!
+    ::
         ?($chis $this)                                  ::  inbound request
       %-  emule  |.  ^+  ..apex
       =*  sec  p.kyz    ::  ?                           ::  https bit

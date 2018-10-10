@@ -1434,6 +1434,8 @@
           ~&  [%block p.kyz]
           fox(bad (~(put in bad.fox) p.kyz))
         ::
+            %sunk  !!
+        ::
             %wake
           (~(wake am [now fox]) hen)
         ::
