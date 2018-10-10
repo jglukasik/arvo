@@ -2010,14 +2010,24 @@
           [%vent p=chain]                               ::  ethereum changes
       ==                                                ::
     ++  note                                            ::  out request $->
-      =,  eyre
-      $%  [%b %rest p=@da]                              ::  cancel timer
-          [%b %wait p=@da]                              ::  wait until
-          [%e %hiss p=(unit user) q=mark r=cage]        ::  outbound user req
-          [%a %want p=sock q=path r=*]                  ::  send message
-          [%j %vent-result p=chain]                     ::  tmp workaround
-          [@tas %init p=ship]                           ::  report install
-      ==                                                ::
+      =,  eyre                                          ::
+      $%  $:  %b                                        :: 
+      $%  [%rest p=@da]                                 ::  cancel timer
+          [%wait p=@da]                                 ::  wait until
+      ==  ==                                            ::
+          $:  %e                                        ::
+      $%  [%hiss p=(unit user) q=mark r=cage]           ::  outbound user req
+      ==  ==                                            ::
+          $:  %a                                        :: 
+      $%  [%want p=sock q=path r=*]                     ::  send message
+      ==  ==                                            ::
+          $:  %j                                        ::
+      $%  [%vent-result p=chain]                        ::  tmp workaround
+      ==  ==                                            ::
+          $:  @tas                                      ::
+      $%  [%init p=ship]                                ::  report install
+          [%sunk p=ship]                                ::  report death
+      ==  ==  ==                                        ::
     ++  public                                          ::  public key state
       $:  live=?                                        ::  seen in current era
           life=life                                     ::  current key number
