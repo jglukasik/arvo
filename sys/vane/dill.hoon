@@ -156,7 +156,7 @@
                  (crud p.kyz q.kyz)
           $blew  (send %rez p.p.kyz q.p.kyz)
           $heft  heft
-          $sunk  !!
+          $sunk  +>
           $veer  (dump kyz)
           $vega  (dump kyz)
           $velo  (dump kyz)

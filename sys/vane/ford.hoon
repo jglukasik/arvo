@@ -6160,7 +6160,7 @@
       ::
       %sunk
     ::
-    !!
+    [~ ford-gate]
   ::
       ::  %wipe: wipe stored builds, clearing :percent-to-remove of the entries
       ::

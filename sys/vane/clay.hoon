@@ -3902,7 +3902,7 @@
       abet:(perm:den pax.req rit.req)
     [mos ..^$]
   ::
-      $sunk  !!
+      $sunk  [~ ..^$]
   ::
       ?($warp $werp)
     =^  for  req
