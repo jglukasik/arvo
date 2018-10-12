@@ -1786,11 +1786,69 @@
   ^-  (unit (unit cage))
   :: XX security
   ?.  =(lot [%$ %da now])  ~
-  %-  some
-  ?.  =(%$ ren)  ~
-  %+  bind  (~(scry of [now eny] lex) syd tyl)
-  =-  ~!  -  -
-  |=(a/gilt [-.a (slot `@`3 !>(a))])
+  :: %-  some
+  ?.  =(%$ ren)  [~ ~]
+  :: =-  ~!  -  -
+  :: %+  bind  (~(scry of [now eny] lex) syd tyl)
+  :: |=(a/gilt [-.a (slot `@`3 !>(a))])
+  ?+    syd
+      ~
+  ::
+      %life
+    ?.  ?=([@ ~] tyl)
+      ~
+    ?.  ?&  ?=(%& -.why)
+            (~(has by pry.urb.lex) p.why)
+        ==
+      ~
+    =/  who  (slaw %p i.tyl)
+    ?~  who  ~
+    ?:  =(u.who p.why)
+      ``[%atom !>(lyf.own.sub.lex)]
+    =/  pub  (~(get by kyz.puk.sub.lex) u.who)
+    ?~  pub  [~ ~]
+    ``[%atom !>(life.u.pub)]
+  ::
+      %earl
+    ?.  ?=([@ @ @ ~] tyl)
+      ~
+    ?.  ?&  ?=(%& -.why)
+            (~(has by pry.urb.lex) p.why)
+        ==
+      ~
+    =/  who  (slaw %p i.tyl)
+    =/  lyf  (slaw %ud i.t.tyl)
+    =/  pub  (slaw %ux i.t.t.tyl)
+    ?~  who  ~
+    ?~  pub  ~
+    ?~  lyf  ~
+    ?.  =(u.lyf lyf.own.sub.lex)
+      [~ ~]
+    :: XX check that who/lyf hasn't been booted
+    ::
+    =/  sec  (~(got by jaw.own.sub.lex) u.lyf)
+    =/  cub  (nol:nu:crub:crypto sec)
+    =/  sig
+      (sign:as:cub (shaf %earl (sham u.who u.lyf u.pub)))
+    ``[%atom !>(sig)]
+  ::
+      %sein
+    ?.  ?=([@ ~] tyl)
+      ~
+    ?.  ?&  ?=(%& -.why)
+            (~(has by pry.urb.lex) p.why)
+        ==
+      ~
+    =/  who  (slaw %p i.tyl)
+    ?~  who  ~
+    =/  hul  (~(get by hul.eth.sub.lex) u.who)
+    ?:  ?&  ?=(^ hul)
+            ?=(^ net.u.hul)
+            ?=(^ sponsor.u.net.u.hul)
+        ==
+      ``[%atom !>(sponsor.u.net.u.hul)]
+    ``[%atom !>((sein:title u.who))]
+  ==
 ::                                                      ::  ++stay
 ++  stay                                                ::  preserve
   lex
